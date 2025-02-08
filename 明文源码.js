@@ -1,19 +1,28 @@
-
 import { connect } from 'cloudflare:sockets';
 
 let userID = '';
-let proxyIP = '';
+let proxyIP = '8.8.8.8:443';
+
+let dohURL = 'https://dns.google/dns-query';
+const doh = 'https://dns.google/dns-query'
+const dohjson = 'https://dns.google/dns-query'
+const contype = 'application/dns-message'
+const jstontype = 'application/dns-json'
+const r404 = new Response(null, {status: 404});
+
 //let sub = '';
 let subConverter = atob('U1VCQVBJLmZ4eGsuZGVkeW4uaW8=');
 let subConfig = atob('aHR0cHM6Ly9yYXcuZ2l0aHVidXNlcmNvbnRlbnQuY29tL0FDTDRTU1IvQUNMNFNTUi9tYXN0ZXIvQ2xhc2gvY29uZmlnL0FDTDRTU1JfT25saW5lX01pbmlfTXVsdGlNb2RlLmluaQ==');
 let subProtocol = 'https';
 let subEmoji = 'true';
+
 let socks5Address = '';
 let parsedSocks5Address = {};
 let enableSocks = false;
 
 let noTLS = 'false';
 const expire = 4102329600;//2099-12-31
+
 let proxyIPs;
 let socks5s;
 let go2Socks5s = [
@@ -22,29 +31,37 @@ let go2Socks5s = [
 	'*cloudatacdn.com',
 	'*.loadshare.org',
 ];
+
 let addresses = [];
 let addressesapi = [];
 let addressesnotls = [];
 let addressesnotlsapi = [];
 let addressescsv = [];
+
 let DLS = 8;
 let remarkIndex = 1;//CSV备注所在列偏移量
 let FileName = atob('ZWRnZXR1bm5lbA==');
 let BotToken;
 let ChatID;
+
 let proxyhosts = [];
 let proxyhostsURL = '';
 let RproxyIP = 'false';
 let httpsPorts = ["2053", "2083", "2087", "2096", "8443"];
+
 let 有效时间 = 7;
 let 更新时间 = 3;
+
 let userIDLow;
 let userIDTime = "";
+
 let proxyIPPool = [];
 let path = '/?ed=2560';
+
 let 动态UUID;
 let link = [];
 let banHosts = [atob('c3BlZWQuY2xvdWRmbGFyZS5jb20=')];
+
 export default {
 	async fetch(request, env, ctx) {
 		try {
@@ -85,6 +102,7 @@ export default {
 			proxyIP = env.PROXYIP || env.proxyip || proxyIP;
 			proxyIPs = await 整理(proxyIP);
 			proxyIP = proxyIPs[Math.floor(Math.random() * proxyIPs.length)];
+			dohURL = env.DNS_RESOLVER_URL || dohURL;
 
 			socks5Address = env.SOCKS5 || socks5Address;
 			socks5s = await 整理(socks5Address);
@@ -388,6 +406,7 @@ async function handleTCPOutBound(remoteSocket, addressType, addressRemote, portR
 	 * 重试函数：当 Cloudflare 的 TCP Socket 没有传入数据时，我们尝试重定向 IP
 	 * 这可能是因为某些网络问题导致的连接失败
 	 */
+	 
 	async function retry() {
 		if (enableSocks) {
 			// 如果启用了 SOCKS5，通过 SOCKS5 代理重试连接
@@ -514,6 +533,7 @@ function makeReadableWebSocketStream(webSocketServer, earlyDataHeader, log) {
  * @param {string} userID 用于验证的用户 ID
  * @returns {Object} 解析结果，包括是否有错误、错误信息、远程地址信息等
  */
+ 
 function process维列斯Header(维列斯Buffer, userID) {
 	// 检查数据长度是否足够（至少需要 24 字节）
 	if (维列斯Buffer.byteLength < 24) {
@@ -738,6 +758,7 @@ async function remoteSocketToWS(remoteSocket, webSocket, 维列斯ResponseHeader
  * @param {string} base64Str Base64 编码的输入字符串
  * @returns {{ earlyData: ArrayBuffer | undefined, error: Error | null }} 返回解码后的 ArrayBuffer 或错误
  */
+ 
 function base64ToArrayBuffer(base64Str) {
 	// 如果输入为空，直接返回空结果
 	if (!base64Str) {
@@ -771,6 +792,7 @@ function base64ToArrayBuffer(base64Str) {
  * @param {string} uuid 要验证的 UUID 字符串
  * @returns {boolean} 如果字符串匹配 UUID 格式则返回 true，否则返回 false
  */
+ 
 function isValidUUID(uuid) {
 	// 定义一个正则表达式来匹配 UUID 格式
 	const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[4][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -811,6 +833,7 @@ for (let i = 0; i < 256; ++i) {
  * @param {number} offset 数组中 UUID 开始的位置，默认为 0
  * @returns {string} UUID 字符串
  */
+ 
 function unsafeStringify(arr, offset = 0) {
 	// 直接从查找表中获取每个字节的十六进制表示，并拼接成 UUID 格式
 	// 8-4-4-4-12 的分组是通过精心放置的连字符 "-" 实现的
@@ -849,13 +872,55 @@ function stringify(arr, offset = 0) {
  * @param {ArrayBuffer} 维列斯ResponseHeader - 维列斯 协议的响应头部数据
  * @param {(string)=> void} log - 日志记录函数
  */
+ 
+ async function handleRequest(request) {
+    // when res is a Promise<Response>, it reduces billed wall-time
+    // blog.cloudflare.com/workers-optimization-reduces-your-bill
+    let res = r404;
+    const { method, headers, url } = request
+    const {searchParams, pathname} = new URL(url)
+    
+    //Check path
+    if (!pathname.startsWith(path)) {
+        return r404;
+    }
+    if (method == 'GET' && searchParams.has('dns')) {
+        res = fetch(doh + '?dns=' + searchParams.get('dns'), {
+            method: 'GET',
+            headers: {
+                'Accept': contype,
+            }
+        });
+    } else if (method === 'POST' && headers.get('content-type') === contype) {
+        // streaming out the request body is optimal than awaiting on it
+        const rostream = request.body;
+        res = fetch(doh, {
+            method: 'POST',
+            headers: {
+                'Accept': contype,
+                'Content-Type': contype,
+            },
+            body: rostream,
+        });
+    } else if (method === 'GET' && headers.get('Accept') === jstontype) {
+        const search = new URL(url).search
+         res = fetch(dohjson + search, {
+            method: 'GET',
+            headers: {
+                'Accept': jstontype,
+            }
+        });
+    }
+    return res;
+}
+
 async function handleDNSQuery(udpChunk, webSocket, 维列斯ResponseHeader, log) {
 	// 无论客户端发送到哪个 DNS 服务器，我们总是使用硬编码的服务器
 	// 因为有些 DNS 服务器不支持 DNS over TCP
 	try {
 		// 选用 Google 的 DNS 服务器（注：后续可能会改为 Cloudflare 的 1.1.1.1）
-		const dnsServer = '8.8.4.4'; // 在 Cloudflare 修复连接自身 IP 的 bug 后，将改为 1.1.1.1
-		const dnsPort = 53; // DNS 服务的标准端口
+		const dnsServer = '8.8.8.8';
+		const dnsPort = 53;
 
 		let 维列斯Header = 维列斯ResponseHeader; // 保存 维列斯 响应头部，用于后续发送
 
@@ -906,6 +971,7 @@ async function handleDNSQuery(udpChunk, webSocket, 维列斯ResponseHeader, log)
  * @param {number} portRemote 目标端口
  * @param {function} log 日志记录函数
  */
+ 
 async function socks5Connect(addressType, addressRemote, portRemote, log) {
 	const { username, password, hostname, port } = parsedSocks5Address;
 	// 连接到 SOCKS5 代理服务器
@@ -1051,6 +1117,7 @@ async function socks5Connect(addressType, addressRemote, portRemote, log) {
  *   - "hostname:port" （不需认证）
  *   - "username:password@[ipv6]:port" （IPv6 地址需要用方括号括起来）
  */
+ 
 function socks5AddressParser(address) {
 	// 使用 "@" 分割地址，分为认证部分和服务器地址部分
 	// reverse() 是为了处理没有认证信息的情况，确保 latter 总是包含服务器地址
@@ -1104,6 +1171,7 @@ function socks5AddressParser(address) {
  * @param {boolean} isBase64 内容是否是Base64编码的
  * @returns {string} 恢复真实信息后的内容
  */
+ 
 function 恢复伪装信息(content, userID, hostName, fakeUserID, fakeHostName, isBase64) {
 	if (isBase64) content = atob(content);  // 如果内容是Base64编码的，先解码
 
@@ -1125,6 +1193,7 @@ function 恢复伪装信息(content, userID, hostName, fakeUserID, fakeHostName,
  * @param {string} 文本 要哈希的文本
  * @returns {Promise<string>} 双重哈希后的小写十六进制字符串
  */
+ 
 async function 双重哈希(文本) {
 	const 编码器 = new TextEncoder();
 
@@ -1218,6 +1287,7 @@ const cmad = decodeURIComponent(atob('dGVsZWdyYW0lMjAlRTQlQkElQTQlRTYlQjUlODElRT
  * @param {string} UA
  * @returns {Promise<string>}
  */
+ 
 async function 生成配置信息(userID, hostName, sub, UA, RproxyIP, _url, fakeUserID, fakeHostName, env) {
 	if (sub) {
 		const match = sub.match(/^(?:https?:\/\/)?([^\/]+)/);
