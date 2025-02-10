@@ -1,11 +1,11 @@
 import { connect } from 'cloudflare:sockets';
 
 let userID = '';
-let proxyIP = '8.8.8.8:443';
+let proxyIP = '1.1.1.1:443';
 
-let dohURL = 'https://dns.google/dns-query';
-const doh = 'https://dns.google/dns-query'
-const dohjson = 'https://dns.google/dns-query'
+let dohURL = 'https://cloudflare-dns.com/dns-query';
+const doh = 'https://cloudflare-dns.com/dns-query'
+const dohjson = 'https://cloudflare-dns.com/dns-query'
 const contype = 'application/dns-message'
 const jstontype = 'application/dns-json'
 const r404 = new Response(null, {status: 404});
